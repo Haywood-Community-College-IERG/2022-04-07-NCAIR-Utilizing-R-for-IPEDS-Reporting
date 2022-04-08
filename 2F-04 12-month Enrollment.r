@@ -1,74 +1,6 @@
----
-title: "Utilizing R for IPEDS Reporting"
-author: "David Onder"
-date: "4/7/2022"
-output:
-  ioslides_presentation:
-    widescreen: yes
-    logo: HCC_Logo.png
-    incremental: yes
-    css: presentation.css
-  beamer_presentation:
-    incremental: yes
----
+# Original source code can be found on GitHub at the link below:
+# https://github.com/Haywood-Community-College-IERG/2022-04-07-NCAIR-Utilizing-R-for-IPEDS-Reporting
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = FALSE)
-```
-
-## Rationale {.build}
-
-- Do you have to ask?
-- Data comes directly from SIS (Colleague)
-- Create import file
-- Easily reproducible
-- No (additional) dependencies on proprietary software (e.g., SAS)
-- Free
-
-
-## What reports?
-
-| Fall                | Winter                | Spring          |
-| ------------------- | --------------------- | --------------- |
-| Completions         | Student Financial Aid | Fall Enrollment |
-| 12-month Enrollment | Graduation Rates      |                 |
-|                     | Graduation Rates 200  |                 |
-|                     | Outcomes Measures     |                 |
-
-Other reports with import files
-
-- Institutional Characteristics via Excel
-- HR via Colleague process (currently)
-- Finance via Excel process
-
-## Structure 1
-
-- Common layout
-    - Inputs
-    - Variables
-    - Load data
-    - Process data
-    - Create output data frames
-    - Write output data frames
-    
-## Structure 2
-
-- Use of `tidyverse` and locally-developed support functions
-    - group_by / ungroup
-    - summarise
-    - spread (convert long data to wide data)
-    - mutate_at (only change certain variables)
-    - select with all_of
-    - add_column (and !!!)
-
-## Define Frontmatter - Part 1
-
-```{r echo-on1, include=FALSE}
-knitr::opts_chunk$set(
-    echo=TRUE, message=FALSE, warning=FALSE, results='hide'
-)
-```
-```{r define-frontmatter-1}
 ### Define GLOBAL USER variables
 fn_report_code <- "e12"
 report_year_data_adjustment <- -1
@@ -82,11 +14,9 @@ TEST <- TRUE # Comment line for default: FALSE
 project_path <- file.path(".")
 input_path <- file.path(project_path, "input")
 output_path <- file.path(project_path, "output")
-```
 
 ## Define Frontmatter - Part 2
 
-```{r define-frontmatter-2, echo=1:11}
 ### Load Packages
 library(tidyverse) # ggplot2, dplyr, tidyr, readr, purrr, tibble
 library(magrittr) # pipes
@@ -109,11 +39,7 @@ if (!exists("CLEANUP")) {
 if (!exists("TEST")) {
     TEST <- NA_integer_
 }
-```
 
-## Define Variables
-
-```{r define_variables, echo=FALSE}
 ###
 ### Define some local variables
 ###
@@ -142,24 +68,7 @@ rf_cohort_year <- str_c(report_year,"RF")
 rp_cohort_year <- str_c(report_year,"RP")
 
 non_summer_term_id <- str_c(report_year, "SU")
-```
 
-Define the local variables needed, including:
-
-- report_year (`r report_year`)
-- report_data_year_start (`r report_data_year_start`)
-- report_data_year_end (`r report_data_year_end`)
-- fn_E12 (`r fn_E12`)
-- \*_cohort_year (for FT, PT, TF, TP, RF, RP) (i.e., `r ft_cohort_year`)
-
-## Get the needed data {.smaller}
-
-```{r echo-off1, include=FALSE}
-knitr::opts_chunk$set(
-    echo=FALSE, message=FALSE, warning=FALSE, results='hide'
-)
-```
-```{r get-data, echo=14:18}
 #######################################
 #
 # HERE IS WHERE THE DATA IS RETRIEVED
@@ -262,12 +171,6 @@ student_term_enrollment <- term_enrollment( report_year ) %>%
 # - Data frame of non-high school credential seekers
 # - Data frame of enrollment for the `r report_year` terms
 
-```
-
-## Process the data {.smaller}
-
-This is where the sausage is made. 
-```{r process-data, echo=TRUE}
 # As an example, create a df with distance load identified
 #    ...this is used later on to determine if enrolled exclusively online
 student_enrollment_all <- student_term_enrollment %>%
@@ -284,8 +187,7 @@ student_enrollment_all <- student_term_enrollment %>%
                                                    if_else(Credential_Seeker==1,"R","N"),
                                                    substring(Status,1,1))),5,6) ) %>%
     select( -c("Term_Cohort","Cohort") )
-```
-```{r process-data-hide}
+
 se_report_year_non_summer_ids <- student_enrollment_all %>%
     filter( Term_ID != non_summer_term_id ) %>%
     select( Campus_ID ) %>%
@@ -355,12 +257,7 @@ se_cohorts <- student_enrollment %>%
             LINE_c = if_else(Term_Cohort_Abbrev %in% c("FT","PT","TF","TP","RF","RP"),"1","2") )
 se_cohorts %>% group_by(Credential_Seeker, LINE_c, DE) %>% summarise(n = n(), .groups = "drop")
 
-```
-
-
-## Create IPEDS data frames - Part 1
-
-```{r create-ipeds-df-1, echo=TRUE}
+## Create IPEDS data frames
 race_gender_cols <- c( FYRACE01=NA_character_, FYRACE02=NA_character_,
                        FYRACE25=NA_character_, FYRACE26=NA_character_,
                        FYRACE27=NA_character_, FYRACE28=NA_character_,
@@ -372,8 +269,6 @@ race_gender_cols <- c( FYRACE01=NA_character_, FYRACE02=NA_character_,
                        FYRACE13=NA_character_, FYRACE14=NA_character_ )
 
 # Also create e12_*_cols for the parts A, B, and C
-```
-```{r create-ipeds-df-1-hide}
 e12_a_cols <- c( UNITID=NA_character_, SURVSECT=NA_character_, PART=NA_character_,
                  LINE=NA_character_, Filler_1=NA_character_, 
                  race_gender_cols )
@@ -383,14 +278,22 @@ e12_b_cols <- c( UNITID=NA_character_, SURVSECT=NA_character_, PART=NA_character
 e12_c_cols <- c( UNITID=NA_character_, SURVSECT=NA_character_, PART=NA_character_,
                  LINE=NA_character_, 
                  ENROLL_EXCLUSIVE=NA_character_, ENROLL_SOME=NA_character_ )
-```
 
-## Create IPEDS data frames - Part 2 {.smaller}
-
-```{r create-ipeds-df-2, echo=TRUE}
 # This creates Part A.
 # The first line looks like this in the output:
 # 198668E12A 3       000000000000000001000004000001000002000000000001...
+# 
+# > str(se_chorts)
+# tibble [280 x 8] (S3: tbl_df/tbl/data.frame)
+# $ Campus_ID             : num [1:280] 5000331 5000690 5001380 5001681 5001697 ...
+# $ Term_ID               : chr [1:280] "2021SP" "2021SP" "2021SP" "2021SP" ...
+# $ Term_Cohort_Abbrev    : chr [1:280] "RP" "RF" "NP" "RP" ...
+# $ Credential_Seeker     : num [1:280] 1 1 2 1 2 1 1 1 1 2 ...
+# $ DE                    : chr [1:280] "ENROLL_EXCLUSIVE" "ENROLL_SOME" "ENROLL_EXCLUSIVE" "ENROLL_EXCLUSIVE" ...
+# $ IPEDS_Race_Gender_Code: chr [1:280] "FYRACE36" "FYRACE36" "FYRACE36" "FYRACE35" ...
+# $ LINE_a                : chr [1:280] "17" " 3" "21" "17" ...
+# $ LINE_c                : chr [1:280] "1" "1" "2" "1" ...
+
 ipeds_e12_a <- se_cohorts %>%
     rename( LINE = LINE_a ) %>%
     select( Campus_ID, LINE, IPEDS_Race_Gender_Code ) %>%
@@ -412,8 +315,26 @@ ipeds_e12_a <- se_cohorts %>%
     select( all_of(names(e12_a_cols)) )
 
 # Similar steps are used to create Parts B and C
-```
-```{r create-ipeds-df-2-hide}
+
+# > str(student_enrollment_all)
+# tibble [338 x 16] (S3: tbl_df/tbl/data.frame)
+# $ Campus_ID             : num [1:338] 5000331 5000690 5001380 5001681 5001697 ...
+# $ Term_ID               : chr [1:338] "2021SP" "2021SP" "2021SP" "2021SU" ...
+# $ Term_Reporting_Year   : num [1:338] 2020 2020 2020 2020 2020 2020 2020 2020 2020 2020 ...
+# $ Semester              : chr [1:338] "SP" "SP" "SP" "SU" ...
+# $ Credits               : num [1:338] 3 14 4 3 8 7 12 20 13 9 ...
+# $ Status                : chr [1:338] "PT" "FT" "PT" "PT" ...
+# $ Distance_Courses      : chr [1:338] "All" "At least 1" "All" "All" ...
+# $ Enrollment_Status     : chr [1:338] "Enrolled" "Enrolled" "Enrolled" "Enrolled" ...
+# $ First_Name            : logi [1:338] NA NA NA NA NA NA ...
+# $ Last_Name             : logi [1:338] NA NA NA NA NA NA ...
+# $ Birth_Date            : Date[1:338], format: "1981-02-21" "1987-08-26" "1990-01-31" "1990-01-31" ...
+# $ Gender                : chr [1:338] "F" "F" "F" "F" ...
+# $ IPEDS_Race_Gender_Code: chr [1:338] "FYRACE36" "FYRACE36" "FYRACE36" "FYRACE36" ...
+# $ Credential_Seeker     : num [1:338] 1 1 2 2 1 2 1 1 1 1 ...
+# $ de_level              : num [1:338] 100 10 100 100 100 100 10 10 100 100 ...
+# $ Term_Cohort_Abbrev    : chr [1:338] "RP" "RF" "NP" "HP" ...
+
 ipeds_e12_b <- student_enrollment_all %>%
     distinct() %>%
     summarise( CREDHRSU = sprintf("%08d", sum(Credits) ), .groups = "drop" ) %>%
@@ -441,11 +362,8 @@ ipeds_e12_c <- se_cohorts %>%
             PART = 'C' ) %>%
     select( all_of(names(e12_c_cols)) )
 
-```
-
 ## Write out the data
 
-```{r write-data, echo=TRUE}
 if (WRITE_OUTPUT) {
     write.table( data.frame(ipeds_e12_a), 
                  file.path(output_path, fn_E12), 
@@ -457,18 +375,3 @@ if (WRITE_OUTPUT) {
                  file.path(output_path, fn_E12), 
                  sep="", col.names = FALSE, row.names = FALSE, quote=FALSE, append=TRUE  )
 }
-```
-
-## Questions {.flexbox .vcenter}
-
-Thank you!
-
-What questions do you have?
-
-
-
-Contact:  
-David Onder  
-Haywood Community College  
-donder@haywood.edu  
-_URL_: https://github.com/Haywood-Community-College-IERG/2022-04-07-NCAIR-Utilizing-R-for-IPEDS-Reporting
